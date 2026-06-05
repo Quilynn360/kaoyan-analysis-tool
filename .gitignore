@@ -1,0 +1,40 @@
+# 原始数据（含敏感信息）
+data/
+
+# Jupyter Notebook 检查点
+.ipynb_checkpoints/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*.so
+
+# 虚拟环境
+venv/
+.venv/
+env/
+.env/
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+*.log
+
+# IDE 配置
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS 生成文件
+.DS_Store
+Thumbs.db
+
+# 报告输出（生成后可选择性提交）
+output/
+reports/
+
+# 环境变量（可能含路径等敏感信息）
+.env.local
+.env.*.local

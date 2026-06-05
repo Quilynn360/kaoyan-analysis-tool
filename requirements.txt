@@ -1,0 +1,34 @@
+# ── 数据分析核心 ──
+pandas>=1.5.0
+numpy>=1.23.0
+scipy>=1.9.0
+statsmodels>=0.13.0
+scikit-learn>=1.1.0
+matplotlib>=3.5.0
+seaborn>=0.12.0
+openpyxl>=3.0.10
+jupyter>=1.0.0
+
+# ── 多格式摄入 ──
+xlrd>=2.0.1
+pdfplumber>=0.9.0
+python-docx>=0.8.11
+Pillow>=9.0.0
+pytesseract>=0.3.10
+
+# ── 报告生成 ──
+tabulate>=0.9.0
+
+# ── Web 前端 ──
+streamlit>=1.30.0
+plotly>=5.15.0
+matplotlib>=3.5.0
+
+# ── 扫描件 OCR 兜底 ──
+pdf2image>=1.17.0
+paddlepaddle>=3.0.0
+# (paddleocr>=3.6.0 已在 OCR 部分声明)
+
+# ── OCR（二选一） ──
+# 方式一（中文推荐）: pip install paddleocr
+# 方式二（轻量）    : pip install pytesseract + 系统安装 tesseract-ocr
