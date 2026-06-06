@@ -893,13 +893,12 @@ with _tabs[1]:
                 st.warning("当前题库暂无满足条件的数据可供盲抽。")
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # ── 3. 题目卡片列表 ──
-        for _, _row in _df_current.iterrows():
+        # ── 3. 题目卡片列表（enumerate 确保 checkbox key 唯一） ──
+        for _idx, (_, _row) in enumerate(_df_current.iterrows()):
             _q = str(_row["question"])
             _a = str(_row["answer"])
             _ch = str(_row["chapter"])
             _tp = str(_row["type"])
-            _card_id = f"card_{_ch}_{_tp}_{_q[:30]}".replace(" ", "_")
 
             # 关键词高亮
             if _keyword:
@@ -923,7 +922,7 @@ with _tabs[1]:
             </div>
             """, unsafe_allow_html=True)
 
-            _toggle_key = f"reveal_{_card_id}"
+            _toggle_key = f"reveal_card_main_{_ch}_{_tp}_{_idx}"
             _show = st.checkbox("👁️ 显示参考答案", key=_toggle_key)
             if _show:
                 st.markdown(f"""
