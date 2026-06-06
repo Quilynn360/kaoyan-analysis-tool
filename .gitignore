@@ -1,5 +1,8 @@
 # 原始数据（含敏感信息）
 data/
+# 但跟踪结构化题库 JSON
+!data/*.json
+!data/motivation.txt
 
 # Jupyter Notebook 检查点
 .ipynb_checkpoints/
