@@ -32,6 +32,7 @@ from src.ingestion import DataIngestor
 from src.organizer import extract_year
 from src.processor import KaoYanAnalyzer, _parse_pdf_table
 from src.report_generator import build_report_data
+from src.ai_advisor import generate_ai_insights_from_markdown
 
 # ── 中文字体配置 ──────────────────────────────────────────────────────
 import platform as _platform
@@ -483,6 +484,8 @@ with st.sidebar:
 # ═══════════════════════════════════════════════════════════════════════
 
 if analyze_btn and st.session_state.uploaded_files:
+    # 切换学校时清空旧 AI 缓存，防止数据错位
+    st.session_state.pop("ai_insights_cache", None)
     with st.spinner("正在加载并分析数据..."):
         try:
             df = _load_dataframe(st.session_state.uploaded_files)
@@ -790,12 +793,53 @@ with _tabs[0]:
         st.markdown("`大小年` `等百分位等值` `协方差矩阵` `分位数回归` `DEA效率` `Cohen d` `MC模拟`")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── 报告生成（全宽） ──
+    # ── 报告生成（全宽，AI 解读前置） ──
     if st.session_state.data_loaded and st.session_state.report_md:
+
+        # ── ① 小红书引流卡片 ──
+        st.markdown(f"""
+        <div style="background:#fff1f0;border:1px solid #ffa39e;padding:1rem;border-radius:8px;margin-bottom:1rem;">
+            <p style="margin:0;font-size:0.95rem;color:#cf1322;font-weight:bold;">
+                📌 找不到数据？部分热门院校考研量化分析已在小红书主页同步更新，无需自行上传！
+                <a href="https://www.xiaohongshu.com/user/profile/65e7cfe2000000000500b6ed" target="_blank" style="color:#1890ff;text-decoration:underline;margin-left:5px;">
+                    👉 点击直接前往我的小红书主页查询
+                </a>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── ② AI 考研导师专属解读面板 ──
+        st.markdown("---")
+        st.markdown("### 🤖 DeepSeek AI 考研导师专属解读面板")
+        if st.button("✨ 一键唤醒 DeepSeek：深度解析目标院校", type="primary", use_container_width=True):
+            if "report_md" in st.session_state and st.session_state.report_md:
+                with st.spinner("🔮 DeepSeek 正在用大模型进行多维度量化推演与话术组织，请稍候..."):
+                    ai_insights = generate_ai_insights_from_markdown(st.session_state.report_md)
+                    st.session_state.ai_insights_cache = ai_insights
+            else:
+                st.warning("请先在上方成功生成基础院校量化报告。")
+        if "ai_insights_cache" in st.session_state and st.session_state.ai_insights_cache:
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,rgba(24,144,255,0.04) 0%,rgba(114,46,209,0.04) 100%);
+                        padding:1.2rem;border-left:5px solid #722ed1;border-radius:6px;margin-top:1rem;margin-bottom:1rem;">
+                <h4 style="margin-top:0;margin-bottom:0.5rem;color:#722ed1;font-weight:bold;">🔮 DeepSeek 大咖内参视角解读成功</h4>
+                <p style="margin:0;font-size:0.9rem;color:var(--text-secondary);">基于全景量化指标与 DEA 前沿效率，已为您自动生成高价值备考指导。</p>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown(st.session_state.ai_insights_cache)
+            st.download_button(
+                label="📥 下载这份 DeepSeek 专属报考内参",
+                data=st.session_state.ai_insights_cache,
+                file_name=f"{st.session_state.get('school_name','目标院校')}_AI报考内参.md",
+                mime="text/markdown",
+                key="btn_download_ai_report",
+            )
+
+        # ── ③ 基础量化分析帖（后置） ──
         st.markdown("---")
         st.markdown('<div class="portal-card">', unsafe_allow_html=True)
-        st.markdown("##### 📝 生成的分析帖（LLM Prompt）")
-        st.markdown("下方文本已用真实统计数据填充模板，可直接复制后交给大语言模型生成分析帖。")
+        st.markdown("##### 📝 基础量化分析帖（LLM Prompt）")
+        st.markdown("下方文本已用真实统计数据填充模板，可复制后交给大语言模型生成分析帖。")
         rtab1, rtab2 = st.tabs(["渲染预览", "Markdown 源码"])
         with rtab1:
             st.markdown(st.session_state.report_md)
@@ -811,43 +855,38 @@ with _tabs[0]:
 #  Tab 1 — 📕 马理论全景背诵库
 # ═══════════════════════════════════════════════════════════════════════
 with _tabs[1]:
-    # ── 加载题库 ──
-    _Q_PATH = PROJECT_ROOT / "data" / "mayuan.json"
-    if not _Q_PATH.exists():
+    _CN = ["全选","导论","第一章","第二章","第三章","第四章","第五章","第六章","第七章",
+           "第八章","第九章","第十章","第十一章","第十二章","第十三章","第十四章","第十五章","第十六章","第十七章"]
+    _COURSES_AND_CHAPTERS = {
+        "马克思主义基本原理": [(c, c) for c in _CN[:9]],
+        "毛泽东思想和中国特色社会主义理论体系概论": [(c, c) for c in _CN[:10]],
+        "习近平新时代中国特色社会主义思想概论": [(c, c) for c in _CN],
+    }
+
+    def _fmt_answer(text: str) -> str:
+        if not text:
+            return ""
+        text = _re.sub(r'(第一|第二|第三|第四|第五|首先|其次|最后|一是|二是|三是|四是|五是)', r'<br/><br/><b>\1</b>', text)
+        text = _re.sub(r'([\(\（][1-9][\)\）])', r'<br/><br/><b>\1</b>', text)
+        return text
+
+    _SUBJECT_FILES = {
+        "马克思主义基本原理": "data/mayuan.json",
+        "毛泽东思想和中国特色社会主义理论体系概论": "data/maogai.json",
+        "习近平新时代中国特色社会主义思想概论": "data/xsixiang.json",
+    }
+    import json, random
+    _all_qs = []
+    for _subj, _fp in _SUBJECT_FILES.items():
+        _p = Path(__file__).resolve().parent / _fp
+        if _p.exists():
+            _all_qs.extend(json.loads(_p.read_text(encoding="utf-8")))
+    _df_qs = pd.DataFrame(_all_qs)
+    if _df_qs.empty:
         st.markdown('<div class="portal-card">', unsafe_allow_html=True)
-        st.error("题库文件 data/mayuan.json 不存在，请先运行 scripts/parse_mayuan.py")
+        st.error("题库文件 data/*.json 不存在，请先运行 scripts/parse_mayuan.py")
         st.markdown('</div>', unsafe_allow_html=True)
     else:
-        import json, random
-
-        # ── 科目章节标准映射（显示名 → 数据中存储的短名） ──
-        _CN = ["全选","导论","第一章","第二章","第三章","第四章","第五章","第六章","第七章","第八章","第九章","第十章","第十一章","第十二章","第十三章","第十四章","第十五章","第十六章","第十七章"]
-        _COURSES_AND_CHAPTERS = {
-            "马克思主义基本原理": [(c, c) for c in _CN[:9]],   # 导论 + 7章
-            "毛泽东思想和中国特色社会主义理论体系概论": [(c, c) for c in _CN[:10]],  # 全选 + 导论 + 8章
-            "习近平新时代中国特色社会主义思想概论": [(c, c) for c in _CN],        # 导论 + 17章
-        }
-
-        # ── 答案文本格式化 ──
-        def _fmt_answer(text: str) -> str:
-            if not text:
-                return ""
-            text = _re.sub(r'(第一|第二|第三|第四|第五|首先|其次|最后|一是|二是|三是|四是|五是)', r'<br/><br/><b>\1</b>', text)
-            text = _re.sub(r'([\(\（][1-9][\)\）])', r'<br/><br/><b>\1</b>', text)
-            return text
-
-        _SUBJECT_FILES = {
-            "马克思主义基本原理": "data/mayuan.json",
-            "毛泽东思想和中国特色社会主义理论体系概论": "data/maogai.json",
-            "习近平新时代中国特色社会主义思想概论": "data/xsixiang.json",
-        }
-        _all_qs = []
-        for _subj, _fp in _SUBJECT_FILES.items():
-            _p = PROJECT_ROOT / _fp
-            if _p.exists():
-                _all_qs.extend(json.loads(_p.read_text(encoding="utf-8")))
-        _df_qs = pd.DataFrame(_all_qs)
-
         # ── 三列联动筛选 ──
         st.markdown('<div class="portal-card">', unsafe_allow_html=True)
         st.markdown("##### 🔍 检索筛选")
@@ -869,16 +908,12 @@ with _tabs[1]:
         # ── 关键词搜索 ──
         _keyword = st.text_input("🔍 输入核心关键词（如：唯物辩证法、实践是检验真理的唯一标准）", key="recite_kw")
 
-        # ── 1. 核心层层过滤（科目 → 章节 → 题型 → 关键词） ──
-        # 第一步：严格绑定当前选择的科目
+        # ── 层层过滤（科目 → 章节 → 题型 → 关键词） ──
         _df_current = _df_qs[_df_qs["subject"] == _sel_subj]
-        # 第二步：根据汉字章节过滤
         if _sel_ch != "全选":
             _df_current = _df_current[_df_current["chapter"] == _sel_ch]
-        # 第三步：根据题型过滤
         if _sel_type != "全部":
             _df_current = _df_current[_df_current["type"] == _sel_type]
-        # 第四步：根据搜索框关键词过滤
         if _keyword:
             _df_current = _df_current[
                 _df_current["question"].str.contains(_keyword, case=False, na=False) |
@@ -887,69 +922,33 @@ with _tabs[1]:
 
         st.caption(f"共 {len(_df_current)} 条题目")
 
-        # ── 2. 🎲 今日背诵盲盒 ──
-        if not _df_current.empty:
-            _pool_blind = _df_current
-        else:
-            _pool_blind = _df_qs[_df_qs["subject"] == _sel_subj]
+        # ── 🎲 盲盒 ──
+        _pool_blind = _df_current if not _df_current.empty else _df_qs[_df_qs["subject"] == _sel_subj]
         st.markdown('<div class="portal-card" style="padding:0.6rem 1rem;border-left:4px solid #FF9800;">', unsafe_allow_html=True)
-        if st.button("🎲 盲抽今日背诵大题", key="btn_random_box_new", use_container_width=True):
+        if st.button("🎲 盲抽今日背诵大题", key="btn_random_box", use_container_width=True):
             if not _pool_blind.empty:
-                _random_item = _pool_blind.sample(n=1).iloc[0]
-                st.markdown(f"""
-                <div style="padding:0.6rem 0;">
-                    <h4 style="margin:0 0 4px 0;color:#FF9800;">🎲 背诵盲盒：📕 [{_random_item['subject']}] · [{_random_item['chapter']}] · [{_random_item['type']}]</h4>
-                    <p style="font-weight:bold;font-size:1.05rem;margin:6px 0;">💡 题目：{_random_item['question']}</p>
-                </div>
-                """, unsafe_allow_html=True)
-                _box_toggle = st.checkbox("👁️ 开启盲盒：显示参考答案要点", key="toggle_box_answer_new")
-                if _box_toggle:
-                    st.markdown(f"""
-                    <div style="padding:1rem;border-left:3px solid #FF9800;background:rgba(128,128,128,0.03);margin-top:0.3rem;line-height:1.7;color:var(--text-primary);">
-                        {_fmt_answer(str(_random_item['answer']))}
-                    </div>
-                    """, unsafe_allow_html=True)
+                _ri = _pool_blind.sample(n=1).iloc[0]
+                st.markdown(f"""<div style="padding:0.6rem 0;"><h4 style="margin:0 0 4px 0;color:#FF9800;">🎲 背诵盲盒：📕 [{_ri['subject']}] · [{_ri['chapter']}] · [{_ri['type']}]</h4><p style="font-weight:bold;font-size:1.05rem;margin:6px 0;">💡 题目：{_ri['question']}</p></div>""", unsafe_allow_html=True)
+                if st.checkbox("👁️ 开启盲盒：显示参考答案要点", key="toggle_box_answer"):
+                    st.markdown(f'<div style="padding:1rem;border-left:3px solid #FF9800;background:rgba(128,128,128,0.03);margin-top:0.3rem;line-height:1.7;color:var(--text-primary);">{_fmt_answer(str(_ri["answer"]))}</div>', unsafe_allow_html=True)
             else:
                 st.warning("当前题库暂无满足条件的数据可供盲抽。")
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # ── 3. 题目卡片列表（enumerate 确保 checkbox key 唯一） ──
+        # ── 题目卡片列表 ──
+        if _df_current.empty:
+            st.info("当前筛选条件下没有题目，请调整筛选条件。")
         for _idx, (_, _row) in enumerate(_df_current.iterrows()):
-            _q = str(_row["question"])
-            _a = str(_row["answer"])
-            _ch = str(_row["chapter"])
-            _tp = str(_row["type"])
-
-            # 关键词高亮
+            _q, _a, _ch, _tp = str(_row["question"]), str(_row["answer"]), str(_row["chapter"]), str(_row["type"])
             if _keyword:
-                _escaped = _re.escape(_keyword)
-                _q_hl = _re.sub(f'({_escaped})', r'<span style="background:rgba(25,118,210,0.15);font-weight:bold;">\1</span>', _q, flags=_re.IGNORECASE)
-                _a_hl = _re.sub(f'({_escaped})', r'<span style="background:rgba(25,118,210,0.15);font-weight:bold;">\1</span>', _a, flags=_re.IGNORECASE)
+                _esc = _re.escape(_keyword)
+                _q_hl = _re.sub(f'({_esc})', r'<span style="background:rgba(25,118,210,0.15);font-weight:bold;">\1</span>', _q, flags=_re.IGNORECASE)
+                _a_hl = _re.sub(f'({_esc})', r'<span style="background:rgba(25,118,210,0.15);font-weight:bold;">\1</span>', _a, flags=_re.IGNORECASE)
             else:
-                _q_hl = _q
-                _a_hl = _a
-
-            st.markdown(f"""
-            <div class="portal-card" style="padding:0.8rem 1.2rem;">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
-                    <span style="font-size:0.7rem;background:var(--accent-blue);color:#fff;padding:1px 8px;border-radius:8px;">{str(_row.get('subject',''))[:6]}..</span>
-                    <span style="font-size:0.7rem;color:var(--text-secondary);">|</span>
-                    <span style="font-size:0.7rem;background:rgba(25,118,210,0.1);color:var(--accent-blue);padding:1px 8px;border-radius:8px;">{_ch}</span>
-                    <span style="font-size:0.7rem;color:var(--text-secondary);">·</span>
-                    <span style="font-size:0.7rem;color:var(--text-secondary);">{_tp}</span>
-                </div>
-                <div style="font-size:0.95rem;line-height:1.5;color:var(--text-primary);">💡 {_q_hl}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            _toggle_key = f"reveal_card_main_{_ch}_{_tp}_{_idx}"
-            _show = st.checkbox("👁️ 显示参考答案", key=_toggle_key)
-            if _show:
-                st.markdown(f"""
-                <div style="padding:10px 14px;border-radius:4px;background:var(--sidebar-card-bg);color:var(--text-primary);font-size:0.9rem;line-height:1.7;margin-bottom:0.6rem;">
-                    {_fmt_answer(_a_hl)}
-                </div>
-                """, unsafe_allow_html=True)
+                _q_hl, _a_hl = _q, _a
+            st.markdown(f"""<div class="portal-card" style="padding:0.8rem 1.2rem;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;"><span style="font-size:0.7rem;background:var(--accent-blue);color:#fff;padding:1px 8px;border-radius:8px;">{str(_row.get('subject',''))[:6]}..</span><span style="font-size:0.7rem;color:var(--text-secondary);">|</span><span style="font-size:0.7rem;background:rgba(25,118,210,0.1);color:var(--accent-blue);padding:1px 8px;border-radius:8px;">{_ch}</span><span style="font-size:0.7rem;color:var(--text-secondary);">·</span><span style="font-size:0.7rem;color:var(--text-secondary);">{_tp}</span></div><div style="font-size:0.95rem;line-height:1.5;color:var(--text-primary);">💡 {_q_hl}</div></div>""", unsafe_allow_html=True)
+            if st.checkbox("👁️ 显示参考答案", key=f"reveal_main_{_ch}_{_tp}_{_idx}"):
+                st.markdown(f'<div style="padding:10px 14px;border-radius:4px;background:var(--sidebar-card-bg);color:var(--text-primary);font-size:0.9rem;line-height:1.7;margin-bottom:0.6rem;">{_fmt_answer(_a_hl)}</div>', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Tab 2 — 📈 全国马理论大盘

@@ -29,6 +29,9 @@ pdf2image>=1.17.0
 paddlepaddle>=3.0.0
 # (paddleocr>=3.6.0 已在 OCR 部分声明)
 
+# ── AI 大模型 ──
+openai>=1.0.0
+
 # ── OCR（二选一） ──
 # 方式一（中文推荐）: pip install paddleocr
 # 方式二（轻量）    : pip install pytesseract + 系统安装 tesseract-ocr
