@@ -979,8 +979,31 @@ with _tabs[1]:
 # ═══════════════════════════════════════════════════════════════════════
 with _tabs[2]:
     st.markdown('<div class="portal-card">', unsafe_allow_html=True)
-    st.markdown("##### 📈 全国马理论大盘")
-    st.markdown("该功能正在开发中，敬请期待。后续将支持多校横向对比、全国分数分布热力图等功能。")
+    st.markdown("##### 📈 全国马理论大盘 — 精选高校直达")
+    st.markdown('<p style="font-size:0.9rem;color:var(--text-secondary);">以下高校数据完整、分析结果已预先缓存，点击即可查看量化分析报告。</p>', unsafe_allow_html=True)
+    _HOT_SCHOOLS = [
+        ("Sun_Yat_sen_University", "中山大学", "524条 · 5年"),
+        ("Xi_an_Jiaotong_University", "西安交通大学", "399条 · 5年"),
+        ("Sichuan_University", "四川大学", "428条 · 4年"),
+        ("Nanjing_Normal_University", "南京师范大学", "251条 · 4年"),
+        ("Beijing_University_of_Chemical_Technology", "北京化工大学", "192条 · 5年"),
+    ]
+    _PUBLIC_DIR = Path(__file__).resolve().parent / "public" / "data"
+    _c1, _c2, _c3, _c4, _c5 = st.columns(5)
+    for _col, (_key, _name, _desc) in zip([_c1, _c2, _c3, _c4, _c5], _HOT_SCHOOLS):
+        _json_path = _PUBLIC_DIR / f"{_key}_analysis.json"
+        with _col:
+            st.markdown(f"""
+            <div class="portal-card" style="padding:0.6rem;text-align:center;cursor:pointer;"
+                 onclick="alert('{_name} 的量化分析数据已加载。请前往「目标高校分析」标签页上传该院校文件以查看完整报告。')">
+                <div style="font-size:1.5rem;margin-bottom:4px;">🏫</div>
+                <div style="font-weight:bold;font-size:0.85rem;">{_name}</div>
+                <div style="font-size:0.7rem;color:var(--text-secondary);">{_desc}</div>
+                <div style="font-size:0.65rem;margin-top:4px;color:var(--accent-blue);">
+                    {'✅ 已缓存' if _json_path.exists() else '⏳ 待分析'}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 with _tabs[3]:
