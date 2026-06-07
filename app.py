@@ -768,6 +768,28 @@ with _tabs[0]:
             - Word（.docx）
             - 图片（.jpg / .png）— 含清晰表格的截图
             """)
+            # ── 小红书引流卡片 ──
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#fff1f0 0%,#fff2e8 100%);
+                        border:1px solid #ffa39e;padding:1.2rem;border-radius:8px;margin-top:1rem;margin-bottom:1.5rem;
+                        box-shadow:0 2px 8px rgba(255,77,79,0.05);">
+                <p style="margin:0;font-size:1rem;color:#cf1322;font-weight:bold;display:flex;align-items:center;">
+                    <span style="font-size:1.3rem;margin-right:8px;">📌</span>
+                    找不到院校数据？部分热门院校考研量化分析已在小红书主页同步更新，无需自行上传！
+                </p>
+                <p style="margin:0.5rem 0 0 0;font-size:0.9rem;color:#434343;line-height:1.5;">
+                    由于各高校导出的原始档案格式多变，自行上传可能因字段不匹配导致系统分析失败。建议优先前往主页直接检索已跑通的现成量化成果。
+                </p>
+                <div style="margin-top:0.8rem;">
+                    <a href="https://www.xiaohongshu.com/user/profile/65e7cfe2000000000500b6ed" target="_blank"
+                       style="display:inline-block;background:#ff4d4f;color:white;text-decoration:none;
+                              padding:0.5rem 1.2rem;border-radius:20px;font-weight:bold;font-size:0.9rem;
+                              box-shadow:0 2px 6px rgba(255,77,79,0.3);transition:all 0.3s;">
+                        👉 点击直接前往我的小红书主页查询
+                    </a>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
     with right_col:
@@ -922,17 +944,19 @@ with _tabs[1]:
 
         st.caption(f"共 {len(_df_current)} 条题目")
 
-        # ── 🎲 盲盒 ──
+        # ── 🎲 盲盒（使用 session_state 持久化抽题结果） ──
         _pool_blind = _df_current if not _df_current.empty else _df_qs[_df_qs["subject"] == _sel_subj]
         st.markdown('<div class="portal-card" style="padding:0.6rem 1rem;border-left:4px solid #FF9800;">', unsafe_allow_html=True)
         if st.button("🎲 盲抽今日背诵大题", key="btn_random_box", use_container_width=True):
             if not _pool_blind.empty:
-                _ri = _pool_blind.sample(n=1).iloc[0]
-                st.markdown(f"""<div style="padding:0.6rem 0;"><h4 style="margin:0 0 4px 0;color:#FF9800;">🎲 背诵盲盒：📕 [{_ri['subject']}] · [{_ri['chapter']}] · [{_ri['type']}]</h4><p style="font-weight:bold;font-size:1.05rem;margin:6px 0;">💡 题目：{_ri['question']}</p></div>""", unsafe_allow_html=True)
-                if st.checkbox("👁️ 开启盲盒：显示参考答案要点", key="toggle_box_answer"):
-                    st.markdown(f'<div style="padding:1rem;border-left:3px solid #FF9800;background:rgba(128,128,128,0.03);margin-top:0.3rem;line-height:1.7;color:var(--text-primary);">{_fmt_answer(str(_ri["answer"]))}</div>', unsafe_allow_html=True)
+                st.session_state.current_blind_question = _pool_blind.sample(n=1).iloc[0].to_dict()
             else:
                 st.warning("当前题库暂无满足条件的数据可供盲抽。")
+        if "current_blind_question" in st.session_state and st.session_state.current_blind_question:
+            _bq = st.session_state.current_blind_question
+            st.markdown(f"""<div style="padding:0.6rem 0;"><h4 style="margin:0 0 4px 0;color:#FF9800;">🎲 背诵盲盒：📕 [{_bq['subject']}] · [{_bq['chapter']}] · [{_bq['type']}]</h4><p style="font-weight:bold;font-size:1.05rem;margin:6px 0;">💡 题目：{_bq['question']}</p></div>""", unsafe_allow_html=True)
+            if st.checkbox("👁️ 开启盲盒：显示参考答案要点", key="toggle_box_answer"):
+                st.markdown(f'<div style="padding:1rem;border-left:3px solid #FF9800;background:rgba(128,128,128,0.03);margin-top:0.3rem;line-height:1.7;color:var(--text-primary);">{_fmt_answer(str(_bq["answer"]))}</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
         # ── 题目卡片列表 ──
