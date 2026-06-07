@@ -234,10 +234,22 @@ def build_report_data(analyzer: Any) -> dict[str, str]:
     # 分位数回归 + Cohen's d 合并表
     qr_df = r.get("quantile_regression", pd.DataFrame())
     cohen_df = r.get("cohen_d", pd.DataFrame())
-    # 防御性列名对齐：确保 subject 列存在
-    for _df in [qr_df, cohen_df]:
+    # 防御性列名对齐：检测 RangeIndex / 数字索引，强制赋予标准列名
+    for _name, _df in [("qr_df", qr_df), ("cohen_df", cohen_df)]:
         if _df.empty:
             continue
+        print(f"DEBUG - {_name} 列名: {list(_df.columns)}")
+        # 列名丢失（RangeIndex 或全数字）→ 根据列数猜测重命名
+        if isinstance(_df.columns, pd.RangeIndex) or all(isinstance(c, int) for c in _df.columns):
+            n = len(_df.columns)
+            if n == 2:
+                _df.columns = ["subject", "cohen_d"]
+            elif n == 3:
+                _df.columns = ["subject", "marginal_effect", "p_value"]
+            elif n == 4:
+                _df.columns = ["subject", "marginal_effect", "p_value", "intercept"]
+            print(f"DEBUG - {_name} 已重命名列: {list(_df.columns)}")
+        # 即使列名存在但用中文，也翻译为英文
         if "subject" not in _df.columns:
             for _alt in ["科目", "专业", "course", "sub"]:
                 if _alt in _df.columns:
