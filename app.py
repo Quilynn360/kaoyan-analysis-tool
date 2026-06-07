@@ -650,11 +650,31 @@ with _tabs[0]:
             _min_5yr = float(df["总分"].mean() - 2 * df["总分"].std()) if "总分" in df.columns else 0
             kcols = st.columns(4)
             with kcols[0]:
-                bm = beta.loc[beta["beta"].idxmax()] if not beta.empty and beta["beta"].notna().any() else None
-                st.metric("β 最高", bm["subject"] if bm is not None else "—", bm["beta"] if bm is not None else "")
+                bm = None
+                if not beta.empty and beta["beta"].notna().any():
+                    try:
+                        bm = beta.loc[beta["beta"].idxmax()]
+                    except Exception:
+                        bm = None
+                _subj_b = "—"
+                _beta_val = ""
+                if bm is not None and not (hasattr(bm, "empty") and bm.empty):
+                    _subj_b = str(bm.get("subject", "—")) if hasattr(bm, "get") else "—"
+                    _beta_val = f"{float(bm['beta']):.2f}" if "beta" in bm.index else ""
+                st.metric("β 最高", _subj_b, _beta_val)
             with kcols[1]:
-                dm = dea.loc[dea["efficiency"].idxmax()] if not dea.empty else None
-                st.metric("DEA 前沿", dm["subject"] if dm is not None else "—", f"{dm['efficiency']:.2f}" if dm else "")
+                dm = None
+                if not dea.empty:
+                    try:
+                        dm = dea.loc[dea["efficiency"].idxmax()]
+                    except Exception:
+                        dm = None
+                _subj_d = "—"
+                _eff_val = ""
+                if dm is not None and not (hasattr(dm, "empty") and dm.empty):
+                    _subj_d = str(dm.get("subject", "—")) if hasattr(dm, "get") else "—"
+                    _eff_val = f"{float(dm['efficiency']):.2f}" if "efficiency" in dm.index else ""
+                st.metric("DEA 前沿", _subj_d, _eff_val)
             with kcols[2]:
                 mc_show = []
                 for pct, val in [("75%", _mc_75), ("85%", _mc_85)]:
