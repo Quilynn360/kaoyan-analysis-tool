@@ -84,10 +84,15 @@ def detect_specialization_structure(df: pd.DataFrame) -> tuple[bool, list[str], 
 
     for grp in year_groups:
         scores = grp["总分"].values
-        score_range = float(scores.max() - scores.min())
+        safe_scores = scores[~pd.isna(scores)]
+        if len(safe_scores) == 0:
+            continue
+        score_range = float(safe_scores.max() - safe_scores.min())
         threshold = max(15, score_range * 0.08)  # 严格阈值：8% or 15分
         jumps: list[int] = []
         for i in range(1, len(scores)):
+            if pd.isna(scores[i]) or pd.isna(scores[i - 1]):
+                continue
             if scores[i] - scores[i - 1] > threshold:
                 jumps.append(i)
         if not jumps:
@@ -143,13 +148,16 @@ def _find_score_jumps(scores: np.ndarray) -> list[int]:
     list[int]
         跳变点的索引位置列表.
     """
+    scores_clean = scores[~pd.isna(scores)]
     n = len(scores)
-    if n < 8:
+    if n < 8 or len(scores_clean) < 3:
         return []
-    score_range = float(scores.max() - scores.min())
+    score_range = float(scores_clean.max() - scores_clean.min())
     threshold = max(15, score_range * 0.08)
     jumps: list[int] = []
     for i in range(1, n):
+        if pd.isna(scores[i]) or pd.isna(scores[i - 1]):
+            continue
         if scores[i] - scores[i - 1] > threshold:
             jumps.append(i)
     return jumps

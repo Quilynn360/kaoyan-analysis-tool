@@ -186,11 +186,10 @@ def build_report_data(analyzer: Any) -> dict[str, str]:
         placeholders[f"score_mid_{en_key}"] = _fmt(mid, 1)
 
         # Z-score
-        z_vals = z_result[z_result["subject"] == subj]["z_score"] if not z_result.empty else pd.Series(dtype=float)
-        placeholders[f"z_{en_key}"] = _fmt(z_vals.mean(), 2) if not z_vals.empty else "—"
+        z_vals = z_result[z_result["subject"] == subj]["z_score"] if "subject" in z_result.columns and not z_result.empty else pd.Series(dtype=float)
 
         # DEA
-        dea_row = dea_overall[dea_overall["subject"] == subj] if not dea_overall.empty else pd.DataFrame()
+        dea_row = dea_overall[dea_overall["subject"] == subj] if "subject" in dea_overall.columns and not dea_overall.empty else pd.DataFrame()
         dea_val = None if dea_row.empty else dea_row["efficiency"].iloc[0]
         placeholders[f"dea_{en_key}"] = _fmt(dea_val, 3)
 
@@ -235,6 +234,15 @@ def build_report_data(analyzer: Any) -> dict[str, str]:
     # 分位数回归 + Cohen's d 合并表
     qr_df = r.get("quantile_regression", pd.DataFrame())
     cohen_df = r.get("cohen_d", pd.DataFrame())
+    # 防御性列名对齐：确保 subject 列存在
+    for _df in [qr_df, cohen_df]:
+        if _df.empty:
+            continue
+        if "subject" not in _df.columns:
+            for _alt in ["科目", "专业", "course", "sub"]:
+                if _alt in _df.columns:
+                    _df.rename(columns={_alt: "subject"}, inplace=True)
+                    break
     qr_rows = [
         "| 科目 | 边际效应系数 ($\\tau = 0.5$) | Cohen's $d$ 效应量 | 综合解读/拉分力度评估 |",
         "| :--- | :--- | :--- | :--- |",
@@ -243,10 +251,10 @@ def build_report_data(analyzer: Any) -> dict[str, str]:
         if subj not in df.columns:
             continue
         # 边际效应
-        qr_row = qr_df[qr_df["subject"] == subj]
+        qr_row = qr_df[qr_df["subject"] == subj] if "subject" in qr_df.columns and not qr_df.empty else pd.DataFrame()
         me = _fmt(qr_row.iloc[0]["marginal_effect"], 4) if not qr_row.empty else "—"
         # Cohen's d
-        cd_row = cohen_df[cohen_df["subject"] == subj]
+        cd_row = cohen_df[cohen_df["subject"] == subj] if "subject" in cohen_df.columns and not cohen_df.empty else pd.DataFrame()
         cd = _fmt(cd_row.iloc[0]["cohen_d"], 3) if not cd_row.empty else "—"
         # 解读
         interp_parts = []
